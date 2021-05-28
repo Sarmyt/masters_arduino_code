@@ -1,54 +1,55 @@
 #include <Wire.h>
 
-#define PWMA   6 // Left        
-#define AIN2   A0 // Left, Forward         
-#define AIN1   A1 // Left, Backwards       
-#define PWMB   5 // Right          
-#define BIN1   A2 // Right, Backwards   
-#define BIN2   A3 // Right, Forwards        
-#define ECHO   2
-#define TRIG   3
+#define PWMA   6 // Left wheel power pin        
+#define AIN2   A0 // Left wheel forward power pin         
+#define AIN1   A1 // Left wheel backwards power pin       
+#define PWMB   5 // Right wheel power pin          
+#define BIN1   A2 // Right wheel backwards power pin   
+#define BIN2   A3 // Right wheel forwards power pin  
+#define ECHO   2 // Echo pin for ultrasonic sensor
+#define TRIG   3 // Trig pin for ultrasonic sensor
 
-const int MPU = 0x68; 
-float AccX, AccY, AccZ;
-float GyroX, GyroY, GyroZ;
-float accAngleX, accAngleY, gyroAngleX, gyroAngleY, gyroAngleZ;
-float roll, pitch, yaw;
-//float roll1, pitch1;
-float AccErrorX, AccErrorY, GyroErrorX, GyroErrorY, GyroErrorZ;
-float elapsedTime, currentTime, previousTime;
+const int MPU = 0x68; // MPU6050 register
+float AccX, AccY, AccZ; // Variables for storing accelerometer information
+float GyroX, GyroY, GyroZ; // Variables for storing gyroscope information
+float accAngleX, accAngleY, gyroAngleX, gyroAngleY, gyroAngleZ; // Variables for storing accelerometer and gyroscopic angles
+float roll, pitch, yaw; // Variables for storing roll, pitch and yaw information
+float AccErrorX, AccErrorY, GyroErrorX, GyroErrorY, GyroErrorZ; // Variables for storing accelerometer and gyroscopic reading error
+float elapsedTime, currentTime, previousTime; // Variables for storing time measurements
 int c = 0;
 
-void processIncomingByte (const byte);
-void process_data (const char);
-const unsigned int MAX_INPUT = 50;
+void processIncomingByte (const byte); // Function to process incoming byte data
+void process_data (const char); // Function to process collection of bytes
+const unsigned int MAX_INPUT = 50; // Max message character length
 
-void calculateImuError();
+void calculateImuError(); // Function to calculate accelerometer and gyroscopic reading errors
 
-int distance;
-int orientation;
-long integral = 0;
-unsigned int last_proportional = 0;
-int target = 0; 
-double timer = 0;
+int distance; // Storing distance reading from ultrasonic sensor
+int orientation; // Storing orientation of robot
+long integral = 0; // Variable used for PID calculation (integral term)
+unsigned int last_proportional = 0; // Variable used for storing previous proportional error
+int target = 0; // Variable for storing target orientation of robot
+double timer = 0; // Timer variable for timing behaviour of robot
 
-int distanceTest();
-void robotForward(int, bool);
-void robotBackward(int);
-void robotTurn(int, bool);
-void robotStop();
+int distanceTest(); // Function for testing distance from robot
+void robotForward(int, bool); // Function to make robot move forward
+void robotBackward(int); // Function to make robot move backwards
+void robotTurn(int, bool); // Function to make robot turn
+void robotStop(); // Function to make robot stop
 
 void setup() {
   Serial.begin(9600);
   Wire.begin();                    
-  Wire.beginTransmission(MPU);      
+  Wire.beginTransmission(MPU);      // Begin communication with MPU6050 
   Wire.write(0x6B);                
   Wire.write(0x00);                  
   Wire.endTransmission(true);       
 
-  calculateImuError();
+  calculateImuError(); // Get accelerometer and gyroscopic erros
   
   delay(20);
+
+  // Define all pins
 
   pinMode(ECHO, INPUT);    
   pinMode(TRIG, OUTPUT);   
@@ -65,59 +66,59 @@ void setup() {
 }
 
 void loop() {
-  while (Serial.available() > 0) {
-    processIncomingByte(Serial.read());
+  while (Serial.available() > 0) { // Look for availability of serial data
+    processIncomingByte(Serial.read()); // If serial data is available then process it
   }
 }
 
-void process_data (char * data) {
+void process_data (char * data) { // Decode message that was received by robot
   const char * splitData;
-  splitData = strtok(data, ",");
+  splitData = strtok(data, ","); // Split message by "," token
   
   switch (splitData[0]) {
-  case 'P': // Pre-intialization
+  case 'P': // Pre-intialization message type
     splitData = strtok(NULL, ",");
     switch (splitData[0]) {
     case 'F':
-      robotForward(1000, false);
+      robotForward(1000, false); // Move robot forward for one second
       break;
 
     case 'B':
-      robotBackward(1000);
+      robotBackward(1000); // Move robot backwards for one second
       break;
 
     case 'S':
-      robotStop();
+      robotStop(); // Stop robot
       break;
 
     default:
-      robotTurn(atoi(splitData), false);
+      robotTurn(atoi(splitData), false); // Turn robot by a given angle
       break;
     }
     break;
 
-  case 'I': // Initialization
+  case 'I': // Initialization message type
     splitData = strtok(NULL, ",");
     orientation = atoi(splitData);
     break;
 
-  case 'E': // Edge
+  case 'E': // Edge message type
     splitData = strtok(NULL, ",");
     switch (splitData[0]) {
     case 'U':
-      robotTurn(180, true);
+      robotTurn(180, true); // Robot has hit an edge, turn robot by 180 degrees
       break;
 
     case 'D':
-      robotTurn(180, true);
+      robotTurn(180, true); // Robot has hit an edge, turn robot by 180 degrees
       break;
 
     case 'L':
-      robotTurn(180, true);
+      robotTurn(180, true); // Robot has hit an edge, turn robot by 180 degrees
       break;
 
     case 'R':
-      robotTurn(180, true);
+      robotTurn(180, true); // Robot has hit an edge, turn robot by 180 degrees
       break;
 
     default:
@@ -125,15 +126,15 @@ void process_data (char * data) {
     }    
     break;
 
-  case 'A': // Arrival
-    robotStop();
+  case 'A': // Arrival message type
+    robotStop(); // Robot has arrived where it needs to be, stop it
     splitData = strtok(NULL, ",");
     orientation = atoi(splitData);
     break;
 
-  case 'R': // Run
+  case 'R': // Run message type
     splitData = strtok(NULL, ",");
-    robotTurn(atoi(splitData), true);
+    robotTurn(atoi(splitData), true); // Turn robot by desired amount indicated in message
     break;
 
   default:
@@ -146,7 +147,7 @@ void processIncomingByte (const byte inByte) {
   static unsigned int input_pos = 0;
 
   switch (inByte) {      
-    case '>':
+    case '>': // This character indicates end of message
       input_line [input_pos] = 0;  
       
       process_data (input_line);
@@ -154,53 +155,50 @@ void processIncomingByte (const byte inByte) {
       input_pos = 0;  
       break;
 
-    default:
+    default: // Message has not ended so move onto next byte
       if (input_pos < (MAX_INPUT - 1))
         input_line [input_pos++] = inByte;
       break;
   }  
 } 
 
-void getOrientation() {
-  Wire.beginTransmission(MPU);
-  Wire.write(0x3B); 
-  Wire.endTransmission(false);
-  Wire.requestFrom(MPU, 6, true); 
-  AccX = (Wire.read() << 8 | Wire.read()) / 16384.0; 
-  AccY = (Wire.read() << 8 | Wire.read()) / 16384.0; 
-  AccZ = (Wire.read() << 8 | Wire.read()) / 16384.0; 
- 
-  accAngleX = (atan(AccY / sqrt(pow(AccX, 2) + pow(AccZ, 2))) * 180 / PI) - AccErrorX; 
-  accAngleY = (atan(-1 * AccX / sqrt(pow(AccY, 2) + pow(AccZ, 2))) * 180 / PI) - AccErrorY; 
+void getOrientation() { // Read data from MPU6050
+//  Wire.beginTransmission(MPU);
+//  Wire.write(0x3B); 
+//  Wire.endTransmission(false);
+//  Wire.requestFrom(MPU, 6, true); 
+//  AccX = (Wire.read() << 8 | Wire.read()) / 16384.0; 
+//  AccY = (Wire.read() << 8 | Wire.read()) / 16384.0; 
+//  AccZ = (Wire.read() << 8 | Wire.read()) / 16384.0; 
+// 
+//  accAngleX = (atan(AccY / sqrt(pow(AccX, 2) + pow(AccZ, 2))) * 180 / PI) - AccErrorX; 
+//  accAngleY = (atan(-1 * AccX / sqrt(pow(AccY, 2) + pow(AccZ, 2))) * 180 / PI) - AccErrorY; 
 
   previousTime = currentTime;        
   currentTime = millis();            
-  elapsedTime = (currentTime - previousTime) / 1000; 
+  elapsedTime = (currentTime - previousTime) / 1000; // Time elasped from previous reading
   Wire.beginTransmission(MPU);
-  Wire.write(0x43); 
+  Wire.write(0x43); // Access first gyroscope register
   Wire.endTransmission(false);
-  Wire.requestFrom(MPU, 6, true);
-  GyroX = (Wire.read() << 8 | Wire.read()) / 131.0; 
-  GyroY = (Wire.read() << 8 | Wire.read()) / 131.0;
-  GyroZ = (Wire.read() << 8 | Wire.read()) / 131.0;
+  Wire.requestFrom(MPU, 6, true); // Access data from all 6 gyroscopic registers
+  GyroX = (Wire.read() << 8 | Wire.read()) / 131.0; // Divide data collected by sensitivity scale factor
+  GyroY = (Wire.read() << 8 | Wire.read()) / 131.0; // Divide data collected by sensitivity scale factor
+  GyroZ = (Wire.read() << 8 | Wire.read()) / 131.0; // Divide data collected by sensitivity scale factor
 
-  GyroX = GyroX - GyroErrorX; 
-  GyroY = GyroY - GyroErrorY; 
-  GyroZ = GyroZ - GyroErrorZ; 
+  GyroX = GyroX - GyroErrorX; // Adjust for gyroscopic error in x-axis
+  GyroY = GyroY - GyroErrorY; // Adjust for gyroscopic error in y-axis
+  GyroZ = GyroZ - GyroErrorZ; // Adjust for gyroscopic error in z-axis
 
-  gyroAngleX = gyroAngleX + GyroX * elapsedTime; 
-  gyroAngleY = gyroAngleY + GyroY * elapsedTime;
+  gyroAngleX = gyroAngleX + GyroX * elapsedTime; // Integrate gyroscope acceleration over time to get change in angle
+  gyroAngleY = gyroAngleY + GyroY * elapsedTime; // Integrate gyroscope acceleration over time to get change in angle
   
-  yaw = yaw + GyroZ * elapsedTime;
-  //roll1 = 0.96 * gyroAngleX + 0.04 * accAngleX;
-  //pitch1 = 0.96 * gyroAngleY + 0.04 * accAngleY;  
-
+  yaw = yaw + GyroZ * elapsedTime; // Integrate gyroscope acceleration over time to get change in angle
   roll = gyroAngleX;
   pitch = gyroAngleY;
 }
 
 void calculateImuError() {
-  while (c < 200) {
+  while (c < 200) { // Collect accelerometer data 200 times
     Wire.beginTransmission(MPU);
     Wire.write(0x3B);
     Wire.endTransmission(false);
@@ -214,11 +212,11 @@ void calculateImuError() {
     c++;
   }
 
-  AccErrorX = AccErrorX / 200;
-  AccErrorY = AccErrorY / 200;
+  AccErrorX = AccErrorX / 200; // Average out the 200 readings to obtain average error reading
+  AccErrorY = AccErrorY / 200; // Average out the 200 readings to obtain average error reading
   c = 0;
 
-  while (c < 200) {
+  while (c < 200) { // Collect gyroscope data 200 times
     Wire.beginTransmission(MPU);
     Wire.write(0x43);
     Wire.endTransmission(false);
@@ -233,20 +231,20 @@ void calculateImuError() {
     c++;
   }
 
-  GyroErrorX = GyroErrorX / 200;
-  GyroErrorY = GyroErrorY / 200;
-  GyroErrorZ = GyroErrorZ / 200;
+  GyroErrorX = GyroErrorX / 200; // Average out the 200 readings to obtain average error reading
+  GyroErrorY = GyroErrorY / 200; // Average out the 200 readings to obtain average error reading
+  GyroErrorZ = GyroErrorZ / 200; // Average out the 200 readings to obtain average error reading
 }
 
 int distanceTest()         
 {
-  digitalWrite(TRIG, LOW);   
-  delayMicroseconds(2);
-  digitalWrite(TRIG, HIGH);  
-  delayMicroseconds(10);
-  digitalWrite(TRIG, LOW);    
-  float Fdistance = pulseIn(ECHO, HIGH);  
-  Fdistance= Fdistance/58;             
+  digitalWrite(TRIG, LOW); // Set trig pin off
+  delayMicroseconds(2); // Wait two milliseconds
+  digitalWrite(TRIG, HIGH); // Set trig pin on
+  delayMicroseconds(10); // Wait 10 milliseconds
+  digitalWrite(TRIG, LOW); // Set trig pin off    
+  float Fdistance = pulseIn(ECHO, HIGH); // Turn on echo pin to listen for reflection of emitted signal
+  Fdistance= Fdistance/58; // Calculate distance to obstacle             
   return (int)Fdistance;
 }  
 
@@ -420,7 +418,7 @@ void robotTurn(int angle, bool isRun)
 }
 
 void robotStop()
-{
+{ // Stop the robot by stopping all motors
   analogWrite(PWMA,0);
   analogWrite(PWMB,0);
   digitalWrite(AIN1,LOW);
