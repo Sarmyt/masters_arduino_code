@@ -248,30 +248,30 @@ int distanceTest()
   return (int)Fdistance;
 }  
 
-void robotForward(int duration, bool isRun)
+void robotForward(int duration, bool isRun) // Moves robot forward for a given duration
 {
-  getOrientation();
-  target = roll;
+  getOrientation(); // Get orientation of robot
+  target = roll; // Set heading of robot, this must be maintained constant for straightline motion
 
-  unsigned long destination = millis() + duration;
+  unsigned long destination = millis() + duration; // Determine length of time to move forward
 
-  analogWrite(PWMA, 0); // Left
-  analogWrite(PWMB, 0); // Right
+  analogWrite(PWMA, 0); // Left wheel power to zero
+  analogWrite(PWMB, 0); // Right wheel power to zero
  
   digitalWrite(AIN1,LOW);
-  digitalWrite(AIN2,HIGH);
+  digitalWrite(AIN2,HIGH); // Left wheel to move forward
   digitalWrite(BIN1,LOW);  
-  digitalWrite(BIN2,HIGH); 
+  digitalWrite(BIN2,HIGH); // Right wheel to move foward
 
   while (millis() < destination) {
   getOrientation();
 
-  int proportional = roll - target;
-  int derivative = proportional - last_proportional;
-  integral += proportional;
-  last_proportional = proportional;
+  int proportional = roll - target; // Calculate proportional error for PID
+  int derivative = proportional - last_proportional; // Calculate derivative error for PID
+  integral += proportional; // Calculate integral error for PID
+  last_proportional = proportional; // Store proportional error for next time
 
-  int power_difference = proportional/20 + integral/10000 + derivative*10; 
+  int power_difference = proportional/20 + integral/10000 + derivative*10; // Use PID controller to determine appropriate control action
 
   const int maximum = 60;
 
@@ -282,34 +282,34 @@ void robotForward(int duration, bool isRun)
 
   if (power_difference < 0)
   {
-     analogWrite(PWMA,maximum + power_difference);
+     analogWrite(PWMA,maximum + power_difference); // Robot orientation is moving right, spin right wheel faster than left wheel
      analogWrite(PWMB,maximum);
    }
    else
    {
       analogWrite(PWMA,maximum);
-      analogWrite(PWMB,maximum - power_difference);
+      analogWrite(PWMB,maximum - power_difference); // Robot orientation is moving left, spin left wheel faster than right wheel
    }      
    
    distance = distanceTest();
 
    if (distance <= 3) {
-     robotStop();
+     robotStop(); // If obstacle in the way then stop moving
    }
 
-   if (isRun) {
+   if (isRun) { // If robot receives another message then stop the forward motion
        if (Serial.available() > 0) {
            destination = millis() - 1;
        } 
    }
    
   }
-  integral = 0;
-  last_proportional = 0;
-  robotStop();
+  integral = 0; // Reset variable to 0
+  last_proportional = 0; // Reset variable to 0
+  robotStop(); // Stop the robot
 }
 
-void robotBackward(int duration)
+void robotBackward(int duration) // Look at "robotForwards" for reference, this function just makes the robot move backwards
 {
   getOrientation();
   target = roll;
@@ -317,7 +317,7 @@ void robotBackward(int duration)
   unsigned long destination = millis() + duration;
 
   analogWrite(PWMA, 0);
-  analogWrite(PWMB, 0); 
+  analogWrite(PWMB, 0);
  
   digitalWrite(AIN1,HIGH);
   digitalWrite(AIN2,LOW);
@@ -357,33 +357,33 @@ void robotBackward(int duration)
   robotStop();
 }
 
-void robotTurn(int angle, bool isRun)
+void robotTurn(int angle, bool isRun) // Spins robot by a given angle amount
 {
   unsigned long timer = millis();
-  analogWrite(PWMA, 0);
-  analogWrite(PWMB, 0); 
+  analogWrite(PWMA, 0); // Left wheel power to zero
+  analogWrite(PWMB, 0); // Right wheel power to zero
   
-  if (angle > 180) {
+  if (angle > 180) { // Normalize angle between -180 to 180 degrees
     angle = angle - 360; 
   }
   
-  getOrientation();
-  target = roll + angle;  
+  getOrientation(); // Find current orientation of robot
+  target = roll + angle; // Determine desired orientation of robot
   //Serial.println(roll);
   
-  while (abs(target - roll) > 2) {
-  if ((millis() - timer) > 8000) {
+  while (abs(target - roll) > 2) { // Until the robot is within 2 degrees of desired angle, keep turning robot
+  if ((millis() - timer) > 8000) { // If robot has been turning for over 8 seconds, then stop turning
     break;
   }
     
   getOrientation();
     
-  int proportional = roll - target;
-  int derivative = proportional - last_proportional;
-  integral += proportional;
-  last_proportional = proportional;
+  int proportional = roll - target; // Calculate proportional error for PID
+  int derivative = proportional - last_proportional; // Calculate derivative error for PID
+  integral += proportional; // Calculate integral error for PID
+  last_proportional = proportional; // Store proportional error for next time
 
-  int power_difference = proportional/40 + integral/500 + derivative*10; 
+  int power_difference = proportional/40 + integral/500 + derivative*10; // Use PID controller to determine appropriate control action
   power_difference = abs(power_difference);
   const int maximum = 60;
 
@@ -392,28 +392,28 @@ void robotTurn(int angle, bool isRun)
   if (power_difference < 0)
     power_difference = 0;
 
-  if (target < roll) {
+  if (target < roll) { // If clockwise rotation is required
       digitalWrite(AIN1,LOW);
       digitalWrite(AIN2,HIGH);
       digitalWrite(BIN1,HIGH);  
       digitalWrite(BIN2,LOW); 
    }
-   else {
+   else { // If counter-clockwise rotation is required
        digitalWrite(AIN1,HIGH);
        digitalWrite(AIN2,LOW);
        digitalWrite(BIN1,LOW);  
        digitalWrite(BIN2,HIGH); 
    }      
    
-   analogWrite(PWMB, power_difference);
-   analogWrite(PWMA, power_difference);
+   analogWrite(PWMB, power_difference); // Use PID controller output to determine appropriate control action
+   analogWrite(PWMA, power_difference); // Use PID controller output to determine appropriate control action
   }
-  integral = 0;
-  last_proportional = 0;
-  robotStop();
+  integral = 0; // Reset variable to 0
+  last_proportional = 0; // Reset variable to 0
+  robotStop(); // Stop the robot
 
   if (isRun) {
-      robotForward(1000, isRun);
+      robotForward(1000, isRun); // When done turning, move robot forwards for one second
   } 
 }
 
