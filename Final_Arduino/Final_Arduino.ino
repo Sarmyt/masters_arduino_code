@@ -244,7 +244,7 @@ int distanceTest()
   delayMicroseconds(10); // Wait 10 milliseconds
   digitalWrite(TRIG, LOW); // Set trig pin off    
   float Fdistance = pulseIn(ECHO, HIGH); // Turn on echo pin to listen for reflection of emitted signal
-  Fdistance= Fdistance/58; // Calculate distance to obstacle             
+  Fdistance= Fdistance/59; // Calculate distance to obstacle             
   return (int)Fdistance;
 }  
 
