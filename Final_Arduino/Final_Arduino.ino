@@ -162,17 +162,7 @@ void processIncomingByte (const byte inByte) {
   }  
 } 
 
-void getOrientation() { // Read data from MPU6050
-//  Wire.beginTransmission(MPU);
-//  Wire.write(0x3B); 
-//  Wire.endTransmission(false);
-//  Wire.requestFrom(MPU, 6, true); 
-//  AccX = (Wire.read() << 8 | Wire.read()) / 16384.0; 
-//  AccY = (Wire.read() << 8 | Wire.read()) / 16384.0; 
-//  AccZ = (Wire.read() << 8 | Wire.read()) / 16384.0; 
-// 
-//  accAngleX = (atan(AccY / sqrt(pow(AccX, 2) + pow(AccZ, 2))) * 180 / PI) - AccErrorX; 
-//  accAngleY = (atan(-1 * AccX / sqrt(pow(AccY, 2) + pow(AccZ, 2))) * 180 / PI) - AccErrorY; 
+void getOrientation() { // This code is derived from Dejan at https://howtomechatronics.com/tutorials/arduino/arduino-and-mpu6050-accelerometer-and-gyroscope-tutorial/
 
   previousTime = currentTime;        
   currentTime = millis();            
@@ -191,30 +181,14 @@ void getOrientation() { // Read data from MPU6050
 
   gyroAngleX = gyroAngleX + GyroX * elapsedTime; // Integrate gyroscope acceleration over time to get change in angle
   gyroAngleY = gyroAngleY + GyroY * elapsedTime; // Integrate gyroscope acceleration over time to get change in angle
+  gyroAngleZ = gyroAngleZ + GyroZ * elapsedTime; // Integrate gyroscope acceleration over time to get change in angle
   
-  yaw = yaw + GyroZ * elapsedTime; // Integrate gyroscope acceleration over time to get change in angle
+  yaw = gyroAngleZ; 
   roll = gyroAngleX;
   pitch = gyroAngleY;
 }
 
-void calculateImuError() {
-  while (c < 200) { // Collect accelerometer data 200 times
-    Wire.beginTransmission(MPU);
-    Wire.write(0x3B);
-    Wire.endTransmission(false);
-    Wire.requestFrom(MPU, 6, true);
-    AccX = (Wire.read() << 8 | Wire.read()) / 16384.0 ;
-    AccY = (Wire.read() << 8 | Wire.read()) / 16384.0 ;
-    AccZ = (Wire.read() << 8 | Wire.read()) / 16384.0 ;
-
-    AccErrorX = AccErrorX + ((atan((AccY) / sqrt(pow((AccX), 2) + pow((AccZ), 2))) * 180 / PI));
-    AccErrorY = AccErrorY + ((atan(-1 * (AccX) / sqrt(pow((AccY), 2) + pow((AccZ), 2))) * 180 / PI));
-    c++;
-  }
-
-  AccErrorX = AccErrorX / 200; // Average out the 200 readings to obtain average error reading
-  AccErrorY = AccErrorY / 200; // Average out the 200 readings to obtain average error reading
-  c = 0;
+void calculateImuError() { // This code is derived from Dejan at https://howtomechatronics.com/tutorials/arduino/arduino-and-mpu6050-accelerometer-and-gyroscope-tutorial/
 
   while (c < 200) { // Collect gyroscope data 200 times
     Wire.beginTransmission(MPU);
@@ -271,7 +245,7 @@ void robotForward(int duration, bool isRun) // Moves robot forward for a given d
   integral += proportional; // Calculate integral error for PID
   last_proportional = proportional; // Store proportional error for next time
 
-  int power_difference = proportional/20 + integral/10000 + derivative*10; // Use PID controller to determine appropriate control action
+  int power_difference = proportional/20 + derivative*10; // Use PD controller to determine appropriate control action
 
   const int maximum = 60;
 
@@ -332,7 +306,7 @@ void robotBackward(int duration) // Look at "robotForwards" for reference, this 
   integral += proportional;
   last_proportional = proportional;
 
-  int power_difference = proportional/20 + integral/10000 + derivative*10; 
+  int power_difference = proportional/20 + derivative*10; 
 
   const int maximum = 60;
 
